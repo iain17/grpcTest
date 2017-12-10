@@ -24,10 +24,11 @@
 #include <google/protobuf/arenastring.h>
 #include <google/protobuf/generated_message_table_driven.h>
 #include <google/protobuf/generated_message_util.h>
-#include <google/protobuf/metadata_lite.h>
-#include <google/protobuf/message_lite.h>
+#include <google/protobuf/metadata.h>
+#include <google/protobuf/message.h>
 #include <google/protobuf/repeated_field.h>  // IWYU pragma: export
 #include <google/protobuf/extension_set.h>  // IWYU pragma: export
+#include <google/protobuf/unknown_field_set.h>
 // @@protoc_insertion_point(includes)
 
 namespace protobuf_helloworld_2eproto {
@@ -40,6 +41,7 @@ struct TableStruct {
   static const ::google::protobuf::internal::SerializationTable serialization_table[];
   static const ::google::protobuf::uint32 offsets[];
 };
+void AddDescriptors();
 void InitDefaultsHelloRequestImpl();
 void InitDefaultsHelloRequest();
 void InitDefaultsHelloReplyImpl();
@@ -61,7 +63,7 @@ namespace helloworld {
 
 // ===================================================================
 
-class HelloRequest : public ::google::protobuf::MessageLite /* @@protoc_insertion_point(class_definition:helloworld.HelloRequest) */ {
+class HelloRequest : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:helloworld.HelloRequest) */ {
  public:
   HelloRequest();
   virtual ~HelloRequest();
@@ -87,6 +89,7 @@ class HelloRequest : public ::google::protobuf::MessageLite /* @@protoc_insertio
     return *this;
   }
   #endif
+  static const ::google::protobuf::Descriptor* descriptor();
   static const HelloRequest& default_instance();
 
   static void InitAsDefaultInstance();  // FOR INTERNAL USE ONLY
@@ -107,8 +110,8 @@ class HelloRequest : public ::google::protobuf::MessageLite /* @@protoc_insertio
   inline HelloRequest* New() const PROTOBUF_FINAL { return New(NULL); }
 
   HelloRequest* New(::google::protobuf::Arena* arena) const PROTOBUF_FINAL;
-  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from)
-    PROTOBUF_FINAL;
+  void CopyFrom(const ::google::protobuf::Message& from) PROTOBUF_FINAL;
+  void MergeFrom(const ::google::protobuf::Message& from) PROTOBUF_FINAL;
   void CopyFrom(const HelloRequest& from);
   void MergeFrom(const HelloRequest& from);
   void Clear() PROTOBUF_FINAL;
@@ -119,12 +122,13 @@ class HelloRequest : public ::google::protobuf::MessageLite /* @@protoc_insertio
       ::google::protobuf::io::CodedInputStream* input) PROTOBUF_FINAL;
   void SerializeWithCachedSizes(
       ::google::protobuf::io::CodedOutputStream* output) const PROTOBUF_FINAL;
-  void DiscardUnknownFields();
+  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
+      bool deterministic, ::google::protobuf::uint8* target) const PROTOBUF_FINAL;
   int GetCachedSize() const PROTOBUF_FINAL { return _cached_size_; }
   private:
   void SharedCtor();
   void SharedDtor();
-  void SetCachedSize(int size) const;
+  void SetCachedSize(int size) const PROTOBUF_FINAL;
   void InternalSwap(HelloRequest* other);
   private:
   inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
@@ -135,7 +139,7 @@ class HelloRequest : public ::google::protobuf::MessageLite /* @@protoc_insertio
   }
   public:
 
-  ::std::string GetTypeName() const PROTOBUF_FINAL;
+  ::google::protobuf::Metadata GetMetadata() const PROTOBUF_FINAL;
 
   // nested types ----------------------------------------------------
 
@@ -158,7 +162,7 @@ class HelloRequest : public ::google::protobuf::MessageLite /* @@protoc_insertio
   // @@protoc_insertion_point(class_scope:helloworld.HelloRequest)
  private:
 
-  ::google::protobuf::internal::InternalMetadataWithArenaLite _internal_metadata_;
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
   ::google::protobuf::internal::ArenaStringPtr name_;
   mutable int _cached_size_;
   friend struct ::protobuf_helloworld_2eproto::TableStruct;
@@ -166,7 +170,7 @@ class HelloRequest : public ::google::protobuf::MessageLite /* @@protoc_insertio
 };
 // -------------------------------------------------------------------
 
-class HelloReply : public ::google::protobuf::MessageLite /* @@protoc_insertion_point(class_definition:helloworld.HelloReply) */ {
+class HelloReply : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:helloworld.HelloReply) */ {
  public:
   HelloReply();
   virtual ~HelloReply();
@@ -192,6 +196,7 @@ class HelloReply : public ::google::protobuf::MessageLite /* @@protoc_insertion_
     return *this;
   }
   #endif
+  static const ::google::protobuf::Descriptor* descriptor();
   static const HelloReply& default_instance();
 
   static void InitAsDefaultInstance();  // FOR INTERNAL USE ONLY
@@ -212,8 +217,8 @@ class HelloReply : public ::google::protobuf::MessageLite /* @@protoc_insertion_
   inline HelloReply* New() const PROTOBUF_FINAL { return New(NULL); }
 
   HelloReply* New(::google::protobuf::Arena* arena) const PROTOBUF_FINAL;
-  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from)
-    PROTOBUF_FINAL;
+  void CopyFrom(const ::google::protobuf::Message& from) PROTOBUF_FINAL;
+  void MergeFrom(const ::google::protobuf::Message& from) PROTOBUF_FINAL;
   void CopyFrom(const HelloReply& from);
   void MergeFrom(const HelloReply& from);
   void Clear() PROTOBUF_FINAL;
@@ -224,12 +229,13 @@ class HelloReply : public ::google::protobuf::MessageLite /* @@protoc_insertion_
       ::google::protobuf::io::CodedInputStream* input) PROTOBUF_FINAL;
   void SerializeWithCachedSizes(
       ::google::protobuf::io::CodedOutputStream* output) const PROTOBUF_FINAL;
-  void DiscardUnknownFields();
+  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
+      bool deterministic, ::google::protobuf::uint8* target) const PROTOBUF_FINAL;
   int GetCachedSize() const PROTOBUF_FINAL { return _cached_size_; }
   private:
   void SharedCtor();
   void SharedDtor();
-  void SetCachedSize(int size) const;
+  void SetCachedSize(int size) const PROTOBUF_FINAL;
   void InternalSwap(HelloReply* other);
   private:
   inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
@@ -240,7 +246,7 @@ class HelloReply : public ::google::protobuf::MessageLite /* @@protoc_insertion_
   }
   public:
 
-  ::std::string GetTypeName() const PROTOBUF_FINAL;
+  ::google::protobuf::Metadata GetMetadata() const PROTOBUF_FINAL;
 
   // nested types ----------------------------------------------------
 
@@ -263,7 +269,7 @@ class HelloReply : public ::google::protobuf::MessageLite /* @@protoc_insertion_
   // @@protoc_insertion_point(class_scope:helloworld.HelloReply)
  private:
 
-  ::google::protobuf::internal::InternalMetadataWithArenaLite _internal_metadata_;
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
   ::google::protobuf::internal::ArenaStringPtr message_;
   mutable int _cached_size_;
   friend struct ::protobuf_helloworld_2eproto::TableStruct;
