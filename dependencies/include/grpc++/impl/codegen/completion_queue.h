@@ -56,20 +56,7 @@ class ServerWriter;
 namespace internal {
 template <class W, class R>
 class ServerReaderWriterBody;
-}  // namespace internal
-
-class Channel;
-class ChannelInterface;
-class ClientContext;
-class CompletionQueue;
-class Server;
-class ServerBuilder;
-class ServerContext;
-class ServerInterface;
-
-namespace internal {
-class CompletionQueueTag;
-class RpcMethod;
+}
 template <class ServiceType, class RequestType, class ResponseType>
 class RpcMethodHandler;
 template <class ServiceType, class RequestType, class ResponseType>
@@ -79,11 +66,16 @@ class ServerStreamingHandler;
 template <class ServiceType, class RequestType, class ResponseType>
 class BidiStreamingHandler;
 class UnknownMethodHandler;
-template <class Streamer, bool WriteNeeded>
-class TemplatedBidiStreamingHandler;
-template <class InputMessage, class OutputMessage>
-class BlockingUnaryCallImpl;
-}  // namespace internal
+
+class Channel;
+class ChannelInterface;
+class ClientContext;
+class CompletionQueueTag;
+class CompletionQueue;
+class RpcMethod;
+class Server;
+class ServerBuilder;
+class ServerContext;
 
 extern CoreCodegenInterface* g_core_codegen_interface;
 
@@ -117,30 +109,6 @@ class CompletionQueue : private GrpcLibraryCodegen {
     TIMEOUT     ///< deadline was reached.
   };
 
-  /// EXPERIMENTAL
-  /// First executes \a F, then reads from the queue, blocking up to
-  /// \a deadline (or the queue's shutdown).
-  /// Both \a tag and \a ok are updated upon success (if an event is available
-  /// within the \a deadline).  A \a tag points to an arbitrary location usually
-  /// employed to uniquely identify an event.
-  ///
-  /// \param F[in] Function to execute before calling AsyncNext on this queue.
-  /// \param tag[out] Upon sucess, updated to point to the event's tag.
-  /// \param ok[out] Upon sucess, true if read a regular event, false otherwise.
-  /// \param deadline[in] How long to block in wait for an event.
-  ///
-  /// \return The type of event read.
-  template <typename T, typename F>
-  NextStatus DoThenAsyncNext(F&& f, void** tag, bool* ok, const T& deadline) {
-    CompletionQueueTLSCache cache = CompletionQueueTLSCache(this);
-    f();
-    if (cache.Flush(tag, ok)) {
-      return GOT_EVENT;
-    } else {
-      return AsyncNext(tag, ok, deadline);
-    }
-  }
-
   /// Read from the queue, blocking up to \a deadline (or the queue's shutdown).
   /// Both \a tag and \a ok are updated upon success (if an event is available
   /// within the \a deadline).  A \a tag points to an arbitrary location usually
@@ -165,9 +133,8 @@ class CompletionQueue : private GrpcLibraryCodegen {
   ///
   /// \return true if read a regular event, false if the queue is shutting down.
   bool Next(void** tag, bool* ok) {
-    return (AsyncNextInternal(tag, ok,
-                              g_core_codegen_interface->gpr_inf_future(
-                                  GPR_CLOCK_REALTIME)) != SHUTDOWN);
+    return (AsyncNextInternal(tag, ok, g_core_codegen_interface->gpr_inf_future(
+                                           GPR_CLOCK_REALTIME)) != SHUTDOWN);
   }
 
   /// Request the shutdown of the queue.
@@ -187,6 +154,21 @@ class CompletionQueue : private GrpcLibraryCodegen {
   /// \warning Remember that the returned instance is owned. No transfer of
   /// owership is performed.
   grpc_completion_queue* cq() { return cq_; }
+
+  /// Manage state of avalanching operations : completion queue tags that
+  /// trigger other completion queue operations. The underlying core completion
+  /// queue should not really shutdown until all avalanching operations have
+  /// been finalized. Note that we maintain the requirement that an avalanche
+  /// registration must take place before CQ shutdown (which must be maintained
+  /// elsehwere)
+  void InitialAvalanching() {
+    gpr_atm_rel_store(&avalanches_in_flight_, static_cast<gpr_atm>(1));
+  }
+  void RegisterAvalanching() {
+    gpr_atm_no_barrier_fetch_add(&avalanches_in_flight_,
+                                 static_cast<gpr_atm>(1));
+  }
+  void CompleteAvalanching();
 
  protected:
   /// Private constructor of CompletionQueue only visible to friend classes
@@ -214,40 +196,28 @@ class CompletionQueue : private GrpcLibraryCodegen {
   template <class W, class R>
   friend class ::grpc::internal::ServerReaderWriterBody;
   template <class ServiceType, class RequestType, class ResponseType>
-  friend class ::grpc::internal::RpcMethodHandler;
+  friend class RpcMethodHandler;
   template <class ServiceType, class RequestType, class ResponseType>
-  friend class ::grpc::internal::ClientStreamingHandler;
+  friend class ClientStreamingHandler;
   template <class ServiceType, class RequestType, class ResponseType>
-  friend class ::grpc::internal::ServerStreamingHandler;
+  friend class ServerStreamingHandler;
   template <class Streamer, bool WriteNeeded>
-  friend class ::grpc::internal::TemplatedBidiStreamingHandler;
-  friend class ::grpc::internal::UnknownMethodHandler;
+  friend class TemplatedBidiStreamingHandler;
+  friend class UnknownMethodHandler;
   friend class ::grpc::Server;
   friend class ::grpc::ServerContext;
-  friend class ::grpc::ServerInterface;
   template <class InputMessage, class OutputMessage>
-  friend class ::grpc::internal::BlockingUnaryCallImpl;
-
-  /// EXPERIMENTAL
-  /// Creates a Thread Local cache to store the first event
-  /// On this completion queue queued from this thread.  Once
-  /// initialized, it must be flushed on the same thread.
-  class CompletionQueueTLSCache {
-   public:
-    CompletionQueueTLSCache(CompletionQueue* cq);
-    ~CompletionQueueTLSCache();
-    bool Flush(void** tag, bool* ok);
-
-   private:
-    CompletionQueue* cq_;
-    bool flushed_;
-  };
+  friend Status BlockingUnaryCall(ChannelInterface* channel,
+                                  const RpcMethod& method,
+                                  ClientContext* context,
+                                  const InputMessage& request,
+                                  OutputMessage* result);
 
   NextStatus AsyncNextInternal(void** tag, bool* ok, gpr_timespec deadline);
 
   /// Wraps \a grpc_completion_queue_pluck.
   /// \warning Must not be mixed with calls to \a Next.
-  bool Pluck(internal::CompletionQueueTag* tag) {
+  bool Pluck(CompletionQueueTag* tag) {
     auto deadline =
         g_core_codegen_interface->gpr_inf_future(GPR_CLOCK_REALTIME);
     auto ev = g_core_codegen_interface->grpc_completion_queue_pluck(
@@ -268,7 +238,7 @@ class CompletionQueue : private GrpcLibraryCodegen {
   /// implementation to simple call the other TryPluck function with a zero
   /// timeout. i.e:
   ///      TryPluck(tag, gpr_time_0(GPR_CLOCK_REALTIME))
-  void TryPluck(internal::CompletionQueueTag* tag) {
+  void TryPluck(CompletionQueueTag* tag) {
     auto deadline = g_core_codegen_interface->gpr_time_0(GPR_CLOCK_REALTIME);
     auto ev = g_core_codegen_interface->grpc_completion_queue_pluck(
         cq_, tag, deadline, nullptr);
@@ -284,7 +254,7 @@ class CompletionQueue : private GrpcLibraryCodegen {
   ///
   /// This exects tag->FinalizeResult (if called) to return 'false' i.e expects
   /// that the tag is internal not something that is returned to the user.
-  void TryPluck(internal::CompletionQueueTag* tag, gpr_timespec deadline) {
+  void TryPluck(CompletionQueueTag* tag, gpr_timespec deadline) {
     auto ev = g_core_codegen_interface->grpc_completion_queue_pluck(
         cq_, tag, deadline, nullptr);
     if (ev.type == GRPC_QUEUE_TIMEOUT || ev.type == GRPC_QUEUE_SHUTDOWN) {
@@ -295,21 +265,6 @@ class CompletionQueue : private GrpcLibraryCodegen {
     void* ignored = tag;
     GPR_CODEGEN_ASSERT(!tag->FinalizeResult(&ignored, &ok));
   }
-
-  /// Manage state of avalanching operations : completion queue tags that
-  /// trigger other completion queue operations. The underlying core completion
-  /// queue should not really shutdown until all avalanching operations have
-  /// been finalized. Note that we maintain the requirement that an avalanche
-  /// registration must take place before CQ shutdown (which must be maintained
-  /// elsehwere)
-  void InitialAvalanching() {
-    gpr_atm_rel_store(&avalanches_in_flight_, static_cast<gpr_atm>(1));
-  }
-  void RegisterAvalanching() {
-    gpr_atm_no_barrier_fetch_add(&avalanches_in_flight_,
-                                 static_cast<gpr_atm>(1));
-  }
-  void CompleteAvalanching();
 
   grpc_completion_queue* cq_;  // owned
 

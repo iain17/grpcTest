@@ -60,16 +60,7 @@ class Channel;
 class ChannelInterface;
 class CompletionQueue;
 class CallCredentials;
-class ClientContext;
-
-namespace internal {
 class RpcMethod;
-class CallOpClientRecvStatus;
-class CallOpRecvInitialMetadata;
-template <class InputMessage, class OutputMessage>
-class BlockingUnaryCallImpl;
-}  // namespace internal
-
 template <class R>
 class ClientReader;
 template <class W>
@@ -348,21 +339,14 @@ class ClientContext {
   /// Applications never need to call this method.
   grpc_call* c_call() { return call_; }
 
-  /// EXPERIMENTAL debugging API
-  ///
-  /// if status is not ok() for an RPC, this will return a detailed string
-  /// of the gRPC Core error that led to the failure. It should not be relied
-  /// upon for anything other than gaining more debug data in failure cases.
-  grpc::string debug_error_string() const { return debug_error_string_; }
-
  private:
   // Disallow copy and assign.
   ClientContext(const ClientContext&);
   ClientContext& operator=(const ClientContext&);
 
   friend class ::grpc::testing::InteropClientContextInspector;
-  friend class ::grpc::internal::CallOpClientRecvStatus;
-  friend class ::grpc::internal::CallOpRecvInitialMetadata;
+  friend class CallOpClientRecvStatus;
+  friend class CallOpRecvInitialMetadata;
   friend class Channel;
   template <class R>
   friend class ::grpc::ClientReader;
@@ -379,12 +363,11 @@ class ClientContext {
   template <class R>
   friend class ::grpc::ClientAsyncResponseReader;
   template <class InputMessage, class OutputMessage>
-  friend class ::grpc::internal::BlockingUnaryCallImpl;
-
-  // Used by friend class CallOpClientRecvStatus
-  void set_debug_error_string(const grpc::string& debug_error_string) {
-    debug_error_string_ = debug_error_string;
-  }
+  friend Status BlockingUnaryCall(ChannelInterface* channel,
+                                  const RpcMethod& method,
+                                  ClientContext* context,
+                                  const InputMessage& request,
+                                  OutputMessage* result);
 
   grpc_call* call() const { return call_; }
   void set_call(grpc_call* call, const std::shared_ptr<Channel>& channel);
@@ -416,16 +399,14 @@ class ClientContext {
   mutable std::shared_ptr<const AuthContext> auth_context_;
   struct census_context* census_context_;
   std::multimap<grpc::string, grpc::string> send_initial_metadata_;
-  internal::MetadataMap recv_initial_metadata_;
-  internal::MetadataMap trailing_metadata_;
+  MetadataMap recv_initial_metadata_;
+  MetadataMap trailing_metadata_;
 
   grpc_call* propagate_from_call_;
   PropagationOptions propagation_options_;
 
   grpc_compression_algorithm compression_algorithm_;
   bool initial_metadata_corked_;
-
-  grpc::string debug_error_string_;
 };
 
 }  // namespace grpc

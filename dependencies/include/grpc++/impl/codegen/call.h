@@ -43,12 +43,10 @@
 namespace grpc {
 
 class ByteBuffer;
-class CompletionQueue;
-extern CoreCodegenInterface* g_core_codegen_interface;
-
-namespace internal {
 class Call;
 class CallHook;
+class CompletionQueue;
+extern CoreCodegenInterface* g_core_codegen_interface;
 
 const char kBinaryErrorDetailsKey[] = "grpc-status-details-bin";
 
@@ -77,7 +75,6 @@ inline grpc_metadata* FillMetadataArray(
   }
   return metadata_array;
 }
-}  // namespace internal
 
 /// Per-message write options.
 class WriteOptions {
@@ -166,7 +163,7 @@ class WriteOptions {
 
   /// Clears flag indicating that this is the last message in a stream,
   /// disabling coalescing.
-  inline WriteOptions& clear_last_message() {
+  inline WriteOptions& clear_last_messsage() {
     last_message_ = false;
     return *this;
   }
@@ -202,7 +199,6 @@ class WriteOptions {
   bool last_message_;
 };
 
-namespace internal {
 /// Default argument for CallOpSet. I is unused by the class, but can be
 /// used for generating multiple names for the same thing.
 template <int I>
@@ -313,15 +309,16 @@ class CallOpSendMessage {
   WriteOptions write_options_;
 };
 
+namespace internal {
+template <class T>
+T Example();
+}  // namespace internal
+
 template <class M>
 Status CallOpSendMessage::SendMessage(const M& message, WriteOptions options) {
   write_options_ = options;
   bool own_buf;
-  // TODO(vjpai): Remove the void below when possible
-  // The void in the template parameter below should not be needed
-  // (since it should be implicit) but is needed due to an observed
-  // difference in behavior between clang and gcc for certain internal users
-  Status result = SerializationTraits<M, void>::Serialize(
+  Status result = SerializationTraits<M>::Serialize(
       message, send_buf_.bbuf_ptr(), &own_buf);
   if (!own_buf) {
     send_buf_.Duplicate();
@@ -386,6 +383,7 @@ class CallOpRecvMessage {
   bool allow_not_getting_message_;
 };
 
+namespace CallOpGenericRecvMessageHelper {
 class DeserializeFunc {
  public:
   virtual Status Deserialize(ByteBuffer* buf) = 0;
@@ -405,6 +403,7 @@ class DeserializeFuncType final : public DeserializeFunc {
  private:
   R* message_;  // Not a managed pointer because management is external to this
 };
+}  // namespace CallOpGenericRecvMessageHelper
 
 class CallOpGenericRecvMessage {
  public:
@@ -415,7 +414,8 @@ class CallOpGenericRecvMessage {
   void RecvMessage(R* message) {
     // Use an explicit base class pointer to avoid resolution error in the
     // following unique_ptr::reset for some old implementations.
-    DeserializeFunc* func = new DeserializeFuncType<R>(message);
+    CallOpGenericRecvMessageHelper::DeserializeFunc* func =
+        new CallOpGenericRecvMessageHelper::DeserializeFuncType<R>(message);
     deserialize_.reset(func);
   }
 
@@ -455,7 +455,7 @@ class CallOpGenericRecvMessage {
   }
 
  private:
-  std::unique_ptr<DeserializeFunc> deserialize_;
+  std::unique_ptr<CallOpGenericRecvMessageHelper::DeserializeFunc> deserialize_;
   ByteBuffer recv_buf_;
   bool allow_not_getting_message_;
 };
@@ -558,12 +558,10 @@ class CallOpRecvInitialMetadata {
 
 class CallOpClientRecvStatus {
  public:
-  CallOpClientRecvStatus()
-      : recv_status_(nullptr), debug_error_string_(nullptr) {}
+  CallOpClientRecvStatus() : recv_status_(nullptr) {}
 
   void ClientRecvStatus(ClientContext* context, Status* status) {
-    client_context_ = context;
-    metadata_map_ = &client_context_->trailing_metadata_;
+    metadata_map_ = &context->trailing_metadata_;
     recv_status_ = status;
     error_message_ = g_core_codegen_interface->grpc_empty_slice();
   }
@@ -576,7 +574,6 @@ class CallOpClientRecvStatus {
     op->data.recv_status_on_client.trailing_metadata = metadata_map_->arr();
     op->data.recv_status_on_client.status = &status_code_;
     op->data.recv_status_on_client.status_details = &error_message_;
-    op->data.recv_status_on_client.error_string = &debug_error_string_;
     op->flags = 0;
     op->reserved = NULL;
   }
@@ -594,20 +591,13 @@ class CallOpClientRecvStatus {
                            grpc::string(GRPC_SLICE_START_PTR(error_message_),
                                         GRPC_SLICE_END_PTR(error_message_)),
                            binary_error_details);
-    client_context_->set_debug_error_string(
-        debug_error_string_ != nullptr ? debug_error_string_ : "");
     g_core_codegen_interface->grpc_slice_unref(error_message_);
-    if (debug_error_string_ != nullptr) {
-      g_core_codegen_interface->gpr_free((void*)debug_error_string_);
-    }
     recv_status_ = nullptr;
   }
 
  private:
-  ClientContext* client_context_;
   MetadataMap* metadata_map_;
   Status* recv_status_;
-  const char* debug_error_string_;
   grpc_status_code status_code_;
   grpc_slice error_message_;
 };
@@ -720,7 +710,7 @@ class Call final {
   grpc_call* call_;
   int max_receive_message_size_;
 };
-}  // namespace internal
+
 }  // namespace grpc
 
 #endif  // GRPCXX_IMPL_CODEGEN_CALL_H

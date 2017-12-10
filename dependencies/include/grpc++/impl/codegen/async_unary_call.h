@@ -69,9 +69,11 @@ class ClientAsyncResponseReaderInterface {
   virtual void Finish(R* msg, Status* status, void* tag) = 0;
 };
 
-namespace internal {
+/// Async API for client-side unary RPCs, where the message response
+/// received from the server is of type \a R.
 template <class R>
-class ClientAsyncResponseReaderFactory {
+class ClientAsyncResponseReader final
+    : public ClientAsyncResponseReaderInterface<R> {
  public:
   /// Start a call and write the request out if \a start is set.
   /// \a tag will be notified on \a cq when the call has been started (i.e.
@@ -80,24 +82,17 @@ class ClientAsyncResponseReaderFactory {
   /// Note that \a context will be used to fill in custom initial metadata
   /// used to send to the server when starting the call.
   template <class W>
-  static ClientAsyncResponseReader<R>* Create(
-      ChannelInterface* channel, CompletionQueue* cq,
-      const ::grpc::internal::RpcMethod& method, ClientContext* context,
-      const W& request, bool start) {
-    ::grpc::internal::Call call = channel->CreateCall(method, context, cq);
+  static ClientAsyncResponseReader* Create(ChannelInterface* channel,
+                                           CompletionQueue* cq,
+                                           const RpcMethod& method,
+                                           ClientContext* context,
+                                           const W& request, bool start) {
+    Call call = channel->CreateCall(method, context, cq);
     return new (g_core_codegen_interface->grpc_call_arena_alloc(
-        call.call(), sizeof(ClientAsyncResponseReader<R>)))
-        ClientAsyncResponseReader<R>(call, context, request, start);
+        call.call(), sizeof(ClientAsyncResponseReader)))
+        ClientAsyncResponseReader(call, context, request, start);
   }
-};
-}  // namespace internal
 
-/// Async API for client-side unary RPCs, where the message response
-/// received from the server is of type \a R.
-template <class R>
-class ClientAsyncResponseReader final
-    : public ClientAsyncResponseReaderInterface<R> {
- public:
   // always allocated against a call arena, no memory free required
   static void operator delete(void* ptr, std::size_t size) {
     assert(size == sizeof(ClientAsyncResponseReader));
@@ -142,14 +137,13 @@ class ClientAsyncResponseReader final
   }
 
  private:
-  friend class internal::ClientAsyncResponseReaderFactory<R>;
   ClientContext* const context_;
-  ::grpc::internal::Call call_;
+  Call call_;
   bool started_;
 
   template <class W>
-  ClientAsyncResponseReader(::grpc::internal::Call call, ClientContext* context,
-                            const W& request, bool start)
+  ClientAsyncResponseReader(Call call, ClientContext* context, const W& request,
+                            bool start)
       : context_(context), call_(call), started_(start) {
     // Bind the metadata at time of StartCallInternal but set up the rest here
     // TODO(ctiller): don't assert
@@ -168,23 +162,19 @@ class ClientAsyncResponseReader final
   static void* operator new(std::size_t size);
   static void* operator new(std::size_t size, void* p) { return p; }
 
-  ::grpc::internal::SneakyCallOpSet<::grpc::internal::CallOpSendInitialMetadata,
-                                    ::grpc::internal::CallOpSendMessage,
-                                    ::grpc::internal::CallOpClientSendClose>
+  SneakyCallOpSet<CallOpSendInitialMetadata, CallOpSendMessage,
+                  CallOpClientSendClose>
       init_buf;
-  ::grpc::internal::CallOpSet<::grpc::internal::CallOpRecvInitialMetadata>
-      meta_buf;
-  ::grpc::internal::CallOpSet<::grpc::internal::CallOpRecvInitialMetadata,
-                              ::grpc::internal::CallOpRecvMessage<R>,
-                              ::grpc::internal::CallOpClientRecvStatus>
+  CallOpSet<CallOpRecvInitialMetadata> meta_buf;
+  CallOpSet<CallOpRecvInitialMetadata, CallOpRecvMessage<R>,
+            CallOpClientRecvStatus>
       finish_buf;
 };
 
 /// Async server-side API for handling unary calls, where the single
 /// response message sent to the client is of type \a W.
 template <class W>
-class ServerAsyncResponseWriter final
-    : public internal::ServerAsyncStreamingInterface {
+class ServerAsyncResponseWriter final : public ServerAsyncStreamingInterface {
  public:
   explicit ServerAsyncResponseWriter(ServerContext* ctx)
       : call_(nullptr, nullptr, nullptr), ctx_(ctx) {}
@@ -272,15 +262,13 @@ class ServerAsyncResponseWriter final
   }
 
  private:
-  void BindCall(::grpc::internal::Call* call) override { call_ = *call; }
+  void BindCall(Call* call) override { call_ = *call; }
 
-  ::grpc::internal::Call call_;
+  Call call_;
   ServerContext* ctx_;
-  ::grpc::internal::CallOpSet<::grpc::internal::CallOpSendInitialMetadata>
-      meta_buf_;
-  ::grpc::internal::CallOpSet<::grpc::internal::CallOpSendInitialMetadata,
-                              ::grpc::internal::CallOpSendMessage,
-                              ::grpc::internal::CallOpServerSendStatus>
+  CallOpSet<CallOpSendInitialMetadata> meta_buf_;
+  CallOpSet<CallOpSendInitialMetadata, CallOpSendMessage,
+            CallOpServerSendStatus>
       finish_buf_;
 };
 
@@ -297,6 +285,6 @@ class default_delete<grpc::ClientAsyncResponseReaderInterface<R>> {
  public:
   void operator()(void* p) {}
 };
-}  // namespace std
+}
 
 #endif  // GRPCXX_IMPL_CODEGEN_ASYNC_UNARY_CALL_H
