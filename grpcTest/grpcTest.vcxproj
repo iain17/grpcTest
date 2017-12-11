@@ -98,7 +98,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)\dependencies\lib\Debug</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libprotobufd.lib;ws2_32.lib;grpc.lib;gpr.lib;grpc++.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>zlibd.lib;ssl.lib;crypto.lib;decrepit.lib;libprotobufd.lib;ws2_32.lib;grpc.lib;gpr.lib;grpc++.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -134,7 +134,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)\dependencies\lib\Release</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libprotobuf.lib;ws2_32.lib;grpc.lib;gpr.lib;grpc++.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>ssl.lib;zlib.lib;crypto.lib;decrepit.lib;libprotobuf.lib;ws2_32.lib;grpc.lib;gpr.lib;grpc++.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

@@ -1,5 +1,5 @@
-Debug/
-Release/
+/Debug/
+/Release/
 .vs
-grpcTest/Debug
-grpcTest/Release
+/grpcTest/Debug
+/grpcTest/Release
