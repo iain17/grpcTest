@@ -8,7 +8,7 @@ Know that the whole point of this project is not what the actual code is and wha
 All of the necessary files are located in dependencies/raw.7z
 
 Here is a screenshot of it working!
-![](proof.png)
+![](static/proof.png)
 
 
 ## Versions
